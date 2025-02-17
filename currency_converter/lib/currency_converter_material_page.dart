@@ -1,7 +1,10 @@
+import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:intl/intl.dart';
+import 'widgets/loading_overlay.dart';
 
 class CurrencyConverterMaterialPage extends StatefulWidget {
   const CurrencyConverterMaterialPage({super.key});
@@ -13,61 +16,164 @@ class CurrencyConverterMaterialPage extends StatefulWidget {
 
 class _CurrencyConverterMaterialPageState
     extends State<CurrencyConverterMaterialPage> {
+  bool isLoading = false;
   double result = 0;
-  final textEditingController = TextEditingController();
-
+  bool isDarkMode = false;
   String? _selectedCountry1;
   String? _selectedCountry2;
+
+  final textEditingController = TextEditingController();
+
   final List<String> _countries = [
-    'AFN', // - AFGHANISTAN (ASIA),
-    'INR', // - INDIA (ASIA)
-    'JPY', // - JAPAN (ASIA)
-    'CNY', // - CHINA (ASIA)
-    'KRW', // SOUTH KOREA (ASIA)
-    'IDR', // - INDONESIA (ASIA)
-    'IRR', // - IRAN (ASIA)',
-    'THB', // - THAILAND (ASIA)',
-    'TRY', // - TURKEY (ASIA)',
-    'USD', // - UNITED STATES (NORTH AMERICA)',
-    'GBP', // - UNITED KINGDOM (EUROPE)',
-    'CAD', // - CANADA (NORTH AMERICA, EUROPE)',
-    'EUR', // - ITALY (EUROPE)',
-    'CHF', // - SWITZERLAND (EUROPE)',
-    'SEK', // - SWEDEN (EUROPE)',
-    'PLN', // - POLAND (EUROPE)',
-    'NOK', // - NORWAY (EUROPE)',
-    'RUB', // - RUSSIA (EUROPE)',
-    'BRL', // - BRAZIL (SOUTH AMERICA)',
-    'ZAR', // - SOUTH AFRICA (AFRICA)',
-    'MXN', // - MEXICO (CENTRAL AMERICA)',
-    'SAR', // - SAUDI ARABIA (MIDDLE EAST)',
-    'ARS', // - ARGENTINA (SOUTH AMERICA)',
-    'AUD', // - AUSTRALIA (OCEANIA)',
-    'NZD', // - NEW ZEALAND (OCEANIA)',
-    'AED', // - UNITED ARAB EMIRATES (MIDDLE EAST)',
-    'EGP', // - EGYPT (AFRICA)',
+    'AFN',
+    'ALL',
+    'AMD',
+    'ANG',
+    'AOA',
+    'ARS',
+    'AUD',
+    'AZN',
+    'BAM',
+    'BBD',
+    'BDT',
+    'BGN',
+    'BIF',
+    'BND',
+    'BOB',
+    'BRL',
+    'BTN',
+    'BYN',
+    'BZD',
+    'CAD',
+    'CHF',
+    'CLP',
+    'CNY',
+    'COP',
+    'CRC',
+    'CUP',
+    'CVE',
+    'CZK',
+    'DJF',
+    'DKK',
+    'DOP',
+    'DZD',
+    'EGP',
+    'ETB',
+    'EUR',
+    'FJD',
+    'GBP',
+    'GEL',
+    'GHS',
+    'GIP',
+    'GMD',
+    'GNF',
+    'GTQ',
+    'GYD',
+    'HKD',
+    'HNL',
+    'HTG',
+    'HUF',
+    'IDR',
+    'ILS',
+    'INR',
+    'IQD',
+    'IRR',
+    'ISK',
+    'JMD',
+    'JOD',
+    'JPY',
+    'KES',
+    'KGS',
+    'KRW',
+    'KWD',
+    'KZT',
+    'LAK',
+    'LBP',
+    'LRD',
+    'LSL',
+    'LYD',
+    'MAD',
+    'MDL',
+    'MGA',
+    'MKD',
+    'MMK',
+    'MNT',
+    'MOP',
+    'MRU',
+    'MUR',
+    'MVR',
+    'MWK',
+    'MXN',
+    'MYR',
+    'MZN',
+    'NAD',
+    'NGN',
+    'NIO',
+    'NOK',
+    'NPR',
+    'NZD',
+    'OMR',
+    'PAB',
+    'PEN',
+    'PGK',
+    'PHP',
+    'PKR',
+    'PLN',
+    'PYG',
+    'QAR',
+    'RON',
+    'RUB',
+    'RWF',
+    'SAR',
+    'SBD',
+    'SCR',
+    'SDG',
+    'SEK',
+    'SGD',
+    'SOS',
+    'SRD',
+    'SSP',
+    'SZL',
+    'SYP',
+    'THB',
+    'TJS',
+    'TMT',
+    'TND',
+    'TOP',
+    'TRY',
+    'TTD',
+    'TWD',
+    'TZS',
+    'UAH',
+    'UGX',
+    'USD',
+    'UYU',
+    'UZS',
+    'VES',
+    'VND',
+    'XOF',
+    'YER',
+    'ZAR',
+    'ZMW',
+    'ZWL',
   ];
+
   Future<void> fetchExchangeRate() async {
-    var connectivityResult = await (Connectivity().checkConnectivity());
-    if (connectivityResult == ConnectivityResult.none) {
-      //No internet connection
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'No internet connection. Please check your connection and try again.',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontFamily: 'SegoeScript',
-            ),
-          ),
-          duration: Duration(seconds: 5),
-        ),
-      );
-      return;
-    }
+    setState(() {
+      isLoading = true;
+    });
 
     try {
+      var connectivityResult = await (Connectivity().checkConnectivity());
+      if (connectivityResult == ConnectivityResult.none) {
+        //No internet connection
+        _showSnackBar(
+            'No internet connection. Please check your connection and try again.');
+        setState(() {
+          isLoading = false;
+        });
+        return;
+      }
       if (_selectedCountry1 != null &&
           _selectedCountry2 != null &&
           textEditingController.text.isNotEmpty) {
@@ -84,12 +190,43 @@ class _CurrencyConverterMaterialPageState
         }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content:
-            Text('Error: Please check you internet connection and try again.'),
-        backgroundColor: Colors.red,
-      ));
+      _showSnackBar('Error Occurred! Try again after some time.');
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
     }
+  }
+
+  void _toggleDarkMode() {
+    setState(() {
+      isDarkMode = !isDarkMode;
+    });
+  }
+
+  String formatNumber(dynamic value) {
+    final number = value is String ? double.tryParse(value) ?? 0 : value;
+    final formatter = NumberFormat('#,###.##');
+    return formatter.format(number);
+  }
+
+  void printError() {
+    _showSnackBar('Please select different currencies');
+    return;
+  }
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          style: TextStyle(
+              color: Colors.white, fontSize: 20, fontFamily: "SegoeScript"),
+        ),
+        backgroundColor: Colors.red,
+        duration: Duration(seconds: 5),
+      ),
+    );
   }
 
   @override
@@ -112,55 +249,97 @@ class _CurrencyConverterMaterialPageState
     );
 
     return Scaffold(
-      backgroundColor: Colors.blueGrey,
+      backgroundColor: isDarkMode ? Colors.grey[900] : Colors.blueGrey,
       appBar: AppBar(
-        backgroundColor: Colors.blueGrey,
+        backgroundColor: isDarkMode ? Colors.grey[900] : Colors.blueGrey,
         elevation: 1,
-        title: const Text(
+        title: AutoSizeText(
           'Currency Converter!',
           style: TextStyle(
-            color: Colors.white,
+            color: isDarkMode ? Colors.white70 : Colors.white,
+            fontSize: 20,
             fontFamily: 'SegoeScript',
           ),
+          maxLines: 1,
         ),
-        centerTitle: true,
+        // centerTitle: true,
+        actions: [
+          IconButton(
+            icon: Icon(
+              Icons.replay_circle_filled,
+              color: isDarkMode ? Colors.white70 : Colors.black,
+              size: 30,
+            ),
+            onPressed: () => setState(() {
+              _selectedCountry1 = null;
+              _selectedCountry2 = null;
+              textEditingController.text = "0";
+              result = 0;
+            }),
+          ),
+          IconButton(
+            icon: Icon(
+              isDarkMode ? Icons.light_mode : Icons.dark_mode,
+              color: isDarkMode ? Colors.white60 : Colors.black,
+              size: 30,
+            ),
+            onPressed: _toggleDarkMode,
+          ),
+          const SizedBox(width: 10)
+        ],
       ),
-      body: Center(
+      body: LoadingOverlay(
+        isLoading: isLoading,
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.start,
           children: [
-            Text(
-              '${_selectedCountry1 ?? 'FROM'} ${textEditingController.text == '' ? '0' : textEditingController.text}',
+            const SizedBox(height: 60),
+            AutoSizeText(
+              //FROM
+              '${_selectedCountry1 ?? 'FROM'} ${textEditingController.text == '' ? '0' : formatNumber(textEditingController.text)}',
               style: const TextStyle(
                 fontFamily: 'SegoeScript',
                 fontSize: 35,
                 fontWeight: FontWeight.w700,
                 color: Color.fromARGB(255, 255, 255, 255),
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              minFontSize: 10,
+              stepGranularity: 1,
             ),
-            Text(
-              '${_selectedCountry2 ?? 'TO'} ${result != 0 ? result.toStringAsFixed(2) : result.toStringAsFixed(0)}',
+            SizedBox(height: 30),
+            AutoSizeText(
+              // TO
+              '${_selectedCountry2 ?? 'TO'} ${result != 0 ? formatNumber(result) : result.toStringAsFixed(0)}',
               style: const TextStyle(
                 fontFamily: 'SegoeScript',
                 fontSize: 35,
                 fontWeight: FontWeight.w700,
                 color: Color.fromARGB(255, 255, 255, 255),
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              minFontSize: 10,
+              stepGranularity: 1,
             ),
+            const SizedBox(height: 40),
             Padding(
               padding: const EdgeInsets.all(10),
               child: TextField(
                 controller: textEditingController,
-                style: const TextStyle(color: Colors.black),
+                style: isDarkMode
+                    ? TextStyle(color: Colors.black)
+                    : TextStyle(color: Colors.white),
                 decoration: InputDecoration(
                   hintText: 'Please enter the amount',
-                  hintStyle: const TextStyle(
-                    color: Colors.black,
+                  hintStyle: TextStyle(
+                    color: isDarkMode ? Colors.white70 : Colors.grey,
                   ),
                   prefixIcon: const Icon(Icons.monetization_on_sharp),
-                  prefixIconColor: Colors.black,
+                  prefixIconColor: isDarkMode ? Colors.black : Colors.white70,
                   filled: true,
-                  fillColor: Colors.white,
+                  fillColor: isDarkMode ? Colors.white54 : Colors.grey[900],
                   focusedBorder: border,
                   enabledBorder: border,
                 ),
@@ -169,6 +348,7 @@ class _CurrencyConverterMaterialPageState
                 ),
               ),
             ),
+            SizedBox(height: 20),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -188,14 +368,53 @@ class _CurrencyConverterMaterialPageState
                     return DropdownMenuItem<String>(
                         value: country, child: Text(country));
                   }).toList(),
-                  onChanged: (String? value) {
-                    setState(() {
-                      _selectedCountry1 = value;
-                    });
+                  onChanged: (String? newValue) {
+                    if (newValue == _selectedCountry2) {
+                      printError();
+                    } else {
+                      setState(() {
+                        _selectedCountry1 = newValue;
+                      });
+                    }
+                  },
+                  selectedItemBuilder: (context) {
+                    return _countries.map((String country) {
+                      return Text(
+                        country,
+                        style: const TextStyle(
+                          color: Colors.white60,
+                        ),
+                      );
+                    }).toList();
                   },
                 ),
                 const SizedBox(width: 40),
-                //___button____2
+
+                //___button___2____Currency_Swap_Button
+                IconButton(
+                  onPressed: () {
+                    if (_selectedCountry1 == null || _selectedCountry2 == null)
+                      _showSnackBar('Select From & To Currencies');
+                    else if (textEditingController.text.isEmpty ||
+                        textEditingController.text == '0') {
+                      _showSnackBar('Enter amount!');
+                    }
+                    setState(() {
+                      String? temp = _selectedCountry1;
+                      _selectedCountry1 = _selectedCountry2;
+                      _selectedCountry2 = temp;
+                    });
+                    fetchExchangeRate();
+                  },
+                  icon: Icon(
+                    Icons.compare_arrows_rounded,
+                    size: 30,
+                    color: isDarkMode ? Colors.white70 : Colors.black87,
+                  ),
+                ),
+                const SizedBox(width: 40),
+
+                //___button____3
                 DropdownButton<String>(
                   value: _selectedCountry2,
                   hint: Text(
@@ -212,21 +431,43 @@ class _CurrencyConverterMaterialPageState
                         value: country, child: Text(country));
                   }).toList(),
                   onChanged: (String? newValue) {
-                    setState(() {
-                      _selectedCountry2 = newValue;
-                    });
+                    if (newValue == _selectedCountry1) {
+                      printError();
+                    } else {
+                      setState(
+                        () {
+                          _selectedCountry2 = newValue;
+                        },
+                      );
+                    }
+                  },
+                  selectedItemBuilder: (context) {
+                    return _countries.map((String country) {
+                      return Text(
+                        country,
+                        style: const TextStyle(
+                          color: Colors.white60,
+                        ),
+                      );
+                    }).toList();
                   },
                 ),
               ],
             ),
+            const SizedBox(height: 15),
             Padding(
               padding: const EdgeInsets.all(10.0),
               child: TextButton(
                 onPressed: () {
-                  fetchExchangeRate();
+                  if (_selectedCountry1 == null || _selectedCountry2 == null)
+                    _showSnackBar('Select From & To Currencies');
+                  else if (textEditingController.text.isEmpty) {
+                    _showSnackBar('Enter amount!');
+                  } else
+                    fetchExchangeRate();
                 },
                 style: TextButton.styleFrom(
-                  backgroundColor: Colors.black,
+                  backgroundColor: isDarkMode ? Colors.white12 : Colors.black,
                   foregroundColor: Colors.white,
                   minimumSize: const Size(double.infinity, 50),
                   shape: BeveledRectangleBorder(
@@ -242,6 +483,7 @@ class _CurrencyConverterMaterialPageState
     );
   }
 }
+
   
   // The above code is a simple currency converter app that converts one currency to another. The app uses the  exchangerate-api.com API to fetch the exchange rate. The app has two dropdown buttons to select the currency to convert from and to. The user can enter the amount to convert in the text field. When the user clicks the convert button, the app fetches the exchange rate and displays the converted amount. 
   // The app uses the  Connectivity plugin to check the internet connection. If there is no internet connection, the app shows a snackbar message. 
