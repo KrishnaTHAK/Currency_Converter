@@ -1,6 +1,7 @@
+import 'package:currency_converter/app/main_navigation_page.dart';
 import 'package:flutter/material.dart';
-import 'package:currency_converter/features/currency_converter/presentation/pages/currency_converter_page.dart';
-// import 'package:device_preview/device_preview.dart';
+// import 'package:device_preview/devic1e_preview.dart';
+
 
 void main() => runApp(MyApp());
 
@@ -10,7 +11,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const MaterialApp(
-      home: CurrencyConverterMaterialPage(),
+      home: MainNavigationPage(),
       debugShowCheckedModeBanner: false,
     );
   }

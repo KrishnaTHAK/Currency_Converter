@@ -1,6 +1,9 @@
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter/material.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:async';
+import 'package:internet_connection_checker/internet_connection_checker.dart';
 import 'package:intl/intl.dart';
 import '../../../../widgets/loading_overlay.dart';
 import '../../../../core/utils/currency_list.dart';
@@ -9,33 +12,110 @@ import '../../presentation/widgets/result_card.dart';
 import '../../presentation/widgets/currency_dropdown.dart';
 import '../../presentation/widgets/amount_input.dart';
 import '../../presentation/widgets/swap_button.dart';
+import '../../presentation/widgets/quick_conversion.dart';
 import '../../presentation/widgets/convert_button.dart';
 import '../../../../core/utils/validators.dart';
 
-class CurrencyConverterMaterialPage extends StatefulWidget {
-  const CurrencyConverterMaterialPage({super.key});
+class CurrencyConverterPage extends StatefulWidget {
+  const CurrencyConverterPage({super.key});
 
   @override
-  State<CurrencyConverterMaterialPage> createState() =>
-      _CurrencyConverterMaterialPageState();
+  State<CurrencyConverterPage> createState() => _CurrencyConverterPageState();
 }
 
-class _CurrencyConverterMaterialPageState
-    extends State<CurrencyConverterMaterialPage> {
-  bool isLoading = false;
+class _CurrencyConverterPageState extends State<CurrencyConverterPage> {
+
+  late StreamSubscription<InternetConnectionStatus> subscription;
+
   double result = 0;
+  bool isLoading = false;
   bool isDarkMode = false;
+  bool isOffline = false;
   String? _selectedCountry1;
   String? _selectedCountry2;
+  List<String> recentConversions = [];
+
+  //Quick convert variables :
+  Future<void> saveLastConversion() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    List<String> history = prefs.getStringList('conversion_history') ?? [];
+
+    String newEntry =
+        "${_selectedCountry1}_${_selectedCountry2}_${textEditingController.text}";
+
+    // Remove duplicate if exists
+    history.remove(newEntry);
+
+    // Add latest at top
+    history.insert(0, newEntry);
+
+    // Keep only last 3
+    if (history.length > 3) {
+      history = history.sublist(0, 3);
+    }
+
+    await prefs.setStringList('conversion_history', history);
+  }
+
+  Future<void> loadRecentConversions() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    setState(() {
+      recentConversions = prefs.getStringList('conversion_history') ?? [];
+    });
+  }
+
+  String? lastFrom;
+  String? lastTo;
+  String? lastAmount;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _checkConnection(); // ✅ initial state
+
+    subscription =
+        InternetConnectionChecker.instance.onStatusChange.listen((status) {
+      setState(() {
+        isOffline = status == InternetConnectionStatus.disconnected;
+      });
+    });
+
+    loadRecentConversions();
+  }
+
+  Future<void> _checkConnection() async {
+    bool hasInternet = await InternetConnectionChecker.instance.hasConnection;
+
+    setState(() {
+      isOffline = !hasInternet;
+    });
+    loadLastConversion();
+  }
+
+  Future<void> loadLastConversion() async {
+    final pref = await SharedPreferences.getInstance();
+
+    setState(() {
+      lastFrom = pref.getString('last_from');
+      lastTo = pref.getString('last_to');
+      lastAmount = pref.getString('last_amount');
+    });
+  }
 
   final textEditingController = TextEditingController();
 
   final ExchangeRateService _service = ExchangeRateService();
 
   Future<void> fetchExchangeRate() async {
-    final currencyError = Validators.validateCurrencies(_selectedCountry1, _selectedCountry2);
+    final currencyError =
+        Validators.validateCurrencies(_selectedCountry1, _selectedCountry2);
     final amountError = Validators.validateAmount(textEditingController.text);
-    if (currencyError != null) { _showSnackBar(currencyError); }
+    if (currencyError != null) {
+      _showSnackBar(currencyError);
+    }
 
     if (amountError != null) {
       _showSnackBar(amountError);
@@ -47,33 +127,37 @@ class _CurrencyConverterMaterialPageState
     });
 
     try {
-      var connectivityResult = await (Connectivity().checkConnectivity());
-      if (connectivityResult == ConnectivityResult.none) {
+      bool hasInternet = await InternetConnectionChecker.instance.hasConnection;
+      if (!hasInternet) {
         //No internet connection
-        _showSnackBar(
-            'No internet connection. Please check your connection and try again.');
         setState(() {
+          isOffline = true;
           isLoading = false;
         });
+        _showSnackBar(
+            'No internet connection. Please check your connection and try again.');
         return;
       }
-      
+
+      setState(() {
+        isOffline = false;
+      });
+
       final rate = await _service.fetchRate(
         from: _selectedCountry1!,
         to: _selectedCountry2!,
       );
-      
+
       setState(() {
         result = double.parse(textEditingController.text) * rate;
       });
 
+      await saveLastConversion();
+      await loadRecentConversions();
+
     } catch (e) {
-      _showSnackBar(
-        'Error Occurred! Try again after some time.'
-      );
-
+      _showSnackBar('Error Occurred! Try again after some time.');
     } finally {
-
       setState(() {
         isLoading = false;
       });
@@ -120,12 +204,9 @@ class _CurrencyConverterMaterialPageState
     super.dispose();
   }
 
-
   // =====================================************************===============================================
   // UI
   // =====================================************************===============================================
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -142,6 +223,9 @@ class _CurrencyConverterMaterialPageState
 
     return Scaffold(
       backgroundColor: isDarkMode ? Colors.grey[900] : Colors.blueGrey,
+      
+      
+      
       appBar: AppBar(
         backgroundColor: isDarkMode ? Colors.grey[900] : Colors.blueGrey,
         elevation: 1,
@@ -156,24 +240,23 @@ class _CurrencyConverterMaterialPageState
         ),
         // centerTitle: true,
         actions: [
+          
+          
           IconButton(
             icon: Icon(
               Icons.replay_circle_filled,
               color: isDarkMode ? Colors.white70 : Colors.black,
               size: 30,
             ),
-
             onPressed: () => setState(() {
-              
               _selectedCountry1 = null;
               _selectedCountry2 = null;
               textEditingController.text = "0";
               result = 0;
-
             }),
-
           ),
-
+          
+          
           IconButton(
             icon: Icon(
               isDarkMode ? Icons.light_mode : Icons.dark_mode,
@@ -182,16 +265,34 @@ class _CurrencyConverterMaterialPageState
             ),
             onPressed: _toggleDarkMode,
           ),
-          const SizedBox(width: 10)
+          
+          
+          Icon(
+            Icons.circle,
+            size: 25,
+            color: isOffline ? Colors.red : Colors.green,
+          ),
+          const SizedBox(width: 6),
         ],
       ),
+      
+      
+      
+      
+      
       body: LoadingOverlay(
         isLoading: isLoading,
+        
         child: SingleChildScrollView(
           child: Column(
+          
             mainAxisAlignment: MainAxisAlignment.start,
+          
             children: [
+
+          
               const SizedBox(height: 60),
+              
               ResultCard(
                 label: _selectedCountry1 ?? 'FROM',
                 value: textEditingController.text.isEmpty
@@ -200,27 +301,38 @@ class _CurrencyConverterMaterialPageState
                         textEditingController.text,
                       ),
               ),
+              
               SizedBox(height: 30),
+              
               ResultCard(
                 label: _selectedCountry2 ?? 'TO',
                 value: result != 0 ? formatNumber(result) : '0',
               ),
+              
               const SizedBox(height: 40),
+              
               AmountInput(
                 controller: textEditingController,
                 isDarkMode: isDarkMode,
                 border: border,
               ),
+              
               SizedBox(height: 20),
+              
               Row(
+                
                 mainAxisAlignment: MainAxisAlignment.center,
+                
                 children: [
                   // First Dropdown
                   Expanded(
+                    
                     child: CurrencyDropdown(
+                      
                       selectedValue: _selectedCountry1,
                       currencies: currencies,
                       hintText: 'FROM',
+                      
                       onChanged: (value) {
                         if (value == _selectedCountry2) {
                           _showSnackBar('Please select different currencies');
@@ -230,6 +342,7 @@ class _CurrencyConverterMaterialPageState
                           });
                         }
                       },
+
                     ),
                   ),
 
@@ -282,25 +395,50 @@ class _CurrencyConverterMaterialPageState
                   ),
                 ],
               ),
+
               const SizedBox(height: 15),
-              ConvertButton(
-                isDarkMode: isDarkMode,
-                onPressed: () {
-                  if (_selectedCountry1 == null || _selectedCountry2 == null) {
-                    _showSnackBar('Select From & To Currencies');
-                    return;
-                  }
+              Column(
+                children: [
+                    ConvertButton(
+                      isDarkMode: isDarkMode,
+                      onPressed: () {
+                        if (_selectedCountry1 == null || _selectedCountry2 == null) {
+                          _showSnackBar('Select From & To Currencies');
+                          return;
+                        }
 
-                  if (textEditingController.text.isEmpty) {
-                    _showSnackBar('Enter amount!');
-                    return;
-                  }
+                        if (textEditingController.text.isEmpty) {
+                          _showSnackBar('Enter amount!');
+                          return;
+                        }
 
-                  fetchExchangeRate();
-                },
-              ),
+                        fetchExchangeRate();
+                      },
+                    ),
+
+                    const SizedBox(height: 16),
+                    
+                    QuickConversionBox(
+                      recentConversions: recentConversions,
+                      isDarkMode: isDarkMode,
+                      onTap: (from, to, amount) {
+                        setState(() {
+                          _selectedCountry1 = from;
+                          _selectedCountry2 = to;
+                          textEditingController.text = amount;
+                        });
+                      },
+                  ),
+                ],
+              )
+
             ],
+
           ),
+
+
+        
+
         ),
       ),
     );
