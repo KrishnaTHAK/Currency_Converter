@@ -2,7 +2,6 @@ import 'package:currency_converter/app/main_navigation_page.dart';
 import 'package:flutter/material.dart';
 // import 'package:device_preview/devic1e_preview.dart';
 
-
 void main() => runApp(MyApp());
 
 class MyApp extends StatelessWidget {

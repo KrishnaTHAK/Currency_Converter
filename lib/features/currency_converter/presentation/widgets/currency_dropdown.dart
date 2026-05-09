@@ -5,13 +5,15 @@ class CurrencyDropdown extends StatelessWidget {
   final List<String> currencies;
   final Function(String?) onChanged;
   final String hintText;
+  final Color color;
   
   const CurrencyDropdown({
     super.key,
     required this.selectedValue,
     required this.currencies,
     required this.onChanged,
-    required this.hintText
+    required this.hintText,
+    required this.color,
   });
 
   @override
@@ -20,10 +22,10 @@ class CurrencyDropdown extends StatelessWidget {
       value: selectedValue,
       hint: Text(
         hintText,
-        style: const TextStyle(
-          color: Colors.grey,
-          fontSize: 25,
-          fontWeight: FontWeight.bold,
+        style: TextStyle(
+          color: color,
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
         ),
       ),
       dropdownColor: Colors.grey,
@@ -40,7 +42,7 @@ class CurrencyDropdown extends StatelessWidget {
           return Text(
             country,
             style: const TextStyle(
-              color: Colors.white60,
+              color: Color.fromARGB(153, 119, 102, 243),
             ),
           );
         }).toList();
